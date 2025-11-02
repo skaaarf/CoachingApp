@@ -3,24 +3,41 @@ import SwiftUI
 struct ContentView: View {
     @StateObject private var service = CoachingService()
     @State private var inputText = ""
-    
+
     var body: some View {
-        VStack {
+        VStack(spacing: 0) {
             Text("あなたのコーチ")
                 .font(.headline)
                 .padding()
-            
-            ScrollView {
-                ForEach(service.messages) { message in
-                    MessageRow(message: message)
+
+            Divider()
+
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(service.messages) { message in
+                            MessageRow(message: message)
+                                .id(message.id)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+                .onChange(of: service.messages.count) { _ in
+                    if let lastMessage = service.messages.last {
+                        withAnimation {
+                            proxy.scrollTo(lastMessage.id, anchor: .bottom)
+                        }
+                    }
                 }
             }
-            
+
+            Divider()
+
             HStack {
                 TextField("メッセージを入力", text: $inputText)
                     .textFieldStyle(.roundedBorder)
                     .padding(.leading)
-                
+
                 Button("送信") {
                     let text = inputText
                     inputText = ""

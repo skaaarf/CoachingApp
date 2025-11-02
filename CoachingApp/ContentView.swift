@@ -136,96 +136,182 @@ struct MessageRow: View {
 
 // MARK: - History View
 struct HistoryView: View {
+    @StateObject private var service = CoachingService()
+    @State private var conversations: [Conversation] = []
+    @State private var isLoading = false
+
     var body: some View {
         NavigationView {
-            List {
-                Section(header: Text("今日")) {
-                    HistoryRow(title: "目標設定について", time: "13:45", preview: "今年の目標について相談しました")
-                    HistoryRow(title: "キャリアプラン", time: "10:30", preview: "転職についてアドバイスを受けました")
-                }
-
-                Section(header: Text("昨日")) {
-                    HistoryRow(title: "健康習慣", time: "昨日", preview: "運動習慣について話し合いました")
-                }
-
-                Section(header: Text("今週")) {
-                    HistoryRow(title: "時間管理", time: "3日前", preview: "効率的な時間の使い方を学びました")
-                    HistoryRow(title: "ストレス対処", time: "4日前", preview: "ストレス管理のテクニックを相談しました")
+            Group {
+                if isLoading {
+                    ProgressView("読み込み中...")
+                } else if conversations.isEmpty {
+                    VStack(spacing: 16) {
+                        Image(systemName: "clock.fill")
+                            .font(.system(size: 60))
+                            .foregroundColor(.gray.opacity(0.3))
+                        Text("まだ会話履歴がありません")
+                            .foregroundColor(.secondary)
+                            .font(.subheadline)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
+                    List {
+                        ForEach(conversations) { conversation in
+                            NavigationLink(
+                                destination: ConversationDetailView(
+                                    service: service,
+                                    conversationId: conversation.id
+                                )
+                            ) {
+                                HistoryRow(conversation: conversation)
+                            }
+                        }
+                        .onDelete(perform: deleteConversation)
+                    }
                 }
             }
             .navigationTitle("履歴")
+            .toolbar {
+                EditButton()
+            }
+            .task {
+                await loadConversations()
+            }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func loadConversations() async {
+        isLoading = true
+        let firestoreService = FirestoreService()
+        do {
+            conversations = try await firestoreService.loadConversations()
+        } catch {
+            print("Error loading conversations: \(error)")
+        }
+        isLoading = false
+    }
+
+    private func deleteConversation(at offsets: IndexSet) {
+        Task {
+            let firestoreService = FirestoreService()
+            for index in offsets {
+                let conversation = conversations[index]
+                do {
+                    try await firestoreService.deleteConversation(conversationId: conversation.id)
+                    await MainActor.run {
+                        conversations.remove(at: index)
+                    }
+                } catch {
+                    print("Error deleting conversation: \(error)")
+                }
+            }
+        }
     }
 }
 
 struct HistoryRow: View {
-    let title: String
-    let time: String
-    let preview: String
+    let conversation: Conversation
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack {
-                Text(title)
+                Text(conversation.title)
                     .font(.headline)
                 Spacer()
-                Text(time)
+                Text(formatDate(conversation.updatedAt))
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
-            Text(preview)
+            Text(conversation.preview)
                 .font(.subheadline)
                 .foregroundColor(.secondary)
                 .lineLimit(2)
         }
         .padding(.vertical, 4)
     }
+
+    private func formatDate(_ date: Date) -> String {
+        let calendar = Calendar.current
+        if calendar.isDateInToday(date) {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: date)
+        } else if calendar.isDateInYesterday(date) {
+            return "昨日"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateFormat = "M/d"
+            return formatter.string(from: date)
+        }
+    }
+}
+
+// 会話詳細ビュー
+struct ConversationDetailView: View {
+    @ObservedObject var service: CoachingService
+    let conversationId: String
+    @State private var isLoading = true
+
+    var body: some View {
+        Group {
+            if isLoading {
+                ProgressView("読み込み中...")
+            } else {
+                ScrollView {
+                    LazyVStack(spacing: 8) {
+                        ForEach(service.messages) { message in
+                            MessageRow(message: message)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+            }
+        }
+        .navigationTitle("会話")
+        .navigationBarTitleDisplayMode(.inline)
+        .task {
+            await service.loadConversation(conversationId: conversationId)
+            isLoading = false
+        }
+    }
 }
 
 // MARK: - Settings View
 struct SettingsView: View {
-    @State private var enableNotifications = true
-    @State private var darkModeEnabled = false
-    @State private var coachingStyle = "バランス型"
+    @EnvironmentObject var authManager: AuthenticationManager
+    @State private var showingLogoutAlert = false
+    @State private var errorMessage: String?
 
     var body: some View {
         NavigationView {
             Form {
-                Section(header: Text("通知設定")) {
-                    Toggle("プッシュ通知", isOn: $enableNotifications)
-                    Toggle("リマインダー", isOn: $enableNotifications)
-                }
-
-                Section(header: Text("表示設定")) {
-                    Toggle("ダークモード", isOn: $darkModeEnabled)
-                    Picker("文字サイズ", selection: .constant("標準")) {
-                        Text("小").tag("小")
-                        Text("標準").tag("標準")
-                        Text("大").tag("大")
-                    }
-                }
-
-                Section(header: Text("コーチング設定")) {
-                    Picker("コーチングスタイル", selection: $coachingStyle) {
-                        Text("励まし型").tag("励まし型")
-                        Text("バランス型").tag("バランス型")
-                        Text("厳格型").tag("厳格型")
-                    }
-                    NavigationLink("目標管理") {
-                        Text("目標管理画面（準備中）")
-                    }
-                }
-
+                // アカウント情報
                 Section(header: Text("アカウント")) {
-                    NavigationLink("プロフィール") {
-                        Text("プロフィール画面（準備中）")
+                    if let user = authManager.user {
+                        HStack {
+                            Text("メール")
+                            Spacer()
+                            Text(user.email ?? "未設定")
+                                .foregroundColor(.secondary)
+                        }
                     }
-                    NavigationLink("データのエクスポート") {
-                        Text("エクスポート画面（準備中）")
+
+                    Button(action: {
+                        showingLogoutAlert = true
+                    }) {
+                        HStack {
+                            Text("ログアウト")
+                                .foregroundColor(.red)
+                            Spacer()
+                            Image(systemName: "arrow.right.square")
+                                .foregroundColor(.red)
+                        }
                     }
                 }
 
+                // アプリ情報
                 Section(header: Text("情報")) {
                     HStack {
                         Text("バージョン")
@@ -233,16 +319,26 @@ struct SettingsView: View {
                         Text("1.0.0")
                             .foregroundColor(.secondary)
                     }
-                    NavigationLink("利用規約") {
-                        Text("利用規約（準備中）")
-                    }
-                    NavigationLink("プライバシーポリシー") {
-                        Text("プライバシーポリシー（準備中）")
-                    }
                 }
             }
             .navigationTitle("設定")
+            .alert("ログアウト", isPresented: $showingLogoutAlert) {
+                Button("キャンセル", role: .cancel) {}
+                Button("ログアウト", role: .destructive) {
+                    logout()
+                }
+            } message: {
+                Text("ログアウトしてもよろしいですか？")
+            }
         }
         .navigationViewStyle(.stack)
+    }
+
+    private func logout() {
+        do {
+            try authManager.signOut()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }

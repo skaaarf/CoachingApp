@@ -30,13 +30,27 @@ struct ChatView: View {
             VStack(spacing: 0) {
                 ScrollViewReader { proxy in
                     ScrollView {
-                        LazyVStack(spacing: 8) {
-                            ForEach(service.messages) { message in
-                                MessageRow(message: message)
-                                    .id(message.id)
+                        if service.messages.isEmpty {
+                            VStack(spacing: 16) {
+                                Image(systemName: "bubble.left.and.bubble.right")
+                                    .font(.system(size: 60))
+                                    .foregroundColor(.gray.opacity(0.3))
+                                Text("メッセージを送信して\nコーチと会話を始めましょう")
+                                    .multilineTextAlignment(.center)
+                                    .foregroundColor(.secondary)
+                                    .font(.subheadline)
                             }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(.top, 100)
+                        } else {
+                            LazyVStack(spacing: 8) {
+                                ForEach(service.messages) { message in
+                                    MessageRow(message: message)
+                                        .id(message.id)
+                                }
+                            }
+                            .padding(.vertical, 8)
                         }
-                        .padding(.vertical, 8)
                     }
                     .onChange(of: service.messages.count) { _ in
                         if let lastMessage = service.messages.last {

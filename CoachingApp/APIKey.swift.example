@@ -1,0 +1,15 @@
+//
+//  APIKey.swift.example
+//  CoachingApp
+//
+//  API Keyを管理するファイルのテンプレート
+//  使い方: このファイルを APIKey.swift にコピーして、実際のAPIキーを設定してください
+//
+
+import Foundation
+
+struct APIKey {
+    // ここにあなたのClaude API Keyを設定してください
+    // https://console.anthropic.com/ から取得できます
+    static let claude = "YOUR_API_KEY_HERE"
+}

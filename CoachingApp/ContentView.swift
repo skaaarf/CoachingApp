@@ -18,6 +18,7 @@ struct ContentView: View {
                     Label("設定", systemImage: "gear")
                 }
         }
+        .accentColor(.blue)
     }
 }
 
@@ -83,6 +84,7 @@ struct ChatView: View {
             .navigationTitle("あなたのコーチ")
             .navigationBarTitleDisplayMode(.inline)
         }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -153,6 +155,7 @@ struct HistoryView: View {
             }
             .navigationTitle("履歴")
         }
+        .navigationViewStyle(.stack)
     }
 }
 
@@ -240,5 +243,6 @@ struct SettingsView: View {
             }
             .navigationTitle("設定")
         }
+        .navigationViewStyle(.stack)
     }
 }

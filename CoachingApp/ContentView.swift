@@ -38,34 +38,46 @@ struct ContentView: View {
 
 struct MessageRow: View {
     let message: ChatMessage
-    
+
     var body: some View {
-        HStack {
+        HStack(alignment: .top, spacing: 12) {
             if message.role == .assistant {
-                VStack(alignment: .leading) {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("コーチ")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     Text(message.content)
-                        .padding()
-                        .background(Color.blue.opacity(0.2))
-                        .cornerRadius(10)
+                        .padding(12)
+                        .foregroundColor(.primary)
+                        .background(Color.blue.opacity(0.15))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color.blue.opacity(0.3), lineWidth: 1)
+                        )
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
                 }
                 Spacer()
             } else {
                 Spacer()
-                VStack(alignment: .trailing) {
+                VStack(alignment: .trailing, spacing: 4) {
                     Text("あなた")
                         .font(.caption)
-                        .foregroundColor(.gray)
+                        .foregroundColor(.secondary)
                     Text(message.content)
-                        .padding()
-                        .background(Color.gray.opacity(0.2))
-                        .cornerRadius(10)
+                        .padding(12)
+                        .foregroundColor(.primary)
+                        .background(Color(.systemGray5))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(Color(.systemGray3), lineWidth: 1)
+                        )
+                        .cornerRadius(16)
+                        .shadow(color: Color.black.opacity(0.08), radius: 4, x: 0, y: 2)
                 }
             }
         }
         .padding(.horizontal)
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
